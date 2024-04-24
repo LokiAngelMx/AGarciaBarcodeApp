@@ -38,6 +38,7 @@ class MainActivity : AppCompatActivity() {
             scanCode()
         }
         observeState()
+        observeUiEvents()
     }
 
     private fun observeState(){
@@ -46,8 +47,18 @@ class MainActivity : AppCompatActivity() {
                 mainViewModel.state.collect{
                     Log.i("Products", it.products.toString())
                     productRecyclerView = findViewById(R.id.rvProducts)
-                    productRecyclerView.adapter = ProductAdapter(products)
+                    productRecyclerView.adapter = ProductAdapter(it.shoppingCartProduct)
                     productRecyclerView.layoutManager = LinearLayoutManager(this@MainActivity, LinearLayoutManager.VERTICAL, false)
+                }
+            }
+        }
+    }
+
+    private fun observeUiEvents(){
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED){
+                mainViewModel.uiEvent.collect{ message ->
+                    Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
                 }
             }
         }

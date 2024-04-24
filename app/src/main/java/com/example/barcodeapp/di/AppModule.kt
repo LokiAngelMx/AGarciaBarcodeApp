@@ -30,27 +30,53 @@ object AppModule {
         return "Hola desde Dagger Hilt"
     }
 
+    @Volatile
+    private var INSTANCE: BarcodeDb? = null
+
     @Provides
     @Singleton
     fun provideBarcodeDb(@ApplicationContext context: Context): BarcodeDb {
-        val callback = object: RoomDatabase.Callback() {
-            override fun onCreate(db: SupportSQLiteDatabase) {
-                super.onCreate(db)
-                val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-                applicationScope.launch {
-                    val barcodeDb = provideBarcodeDb(context)
-                    val productDao = barcodeDb.productDao()
-                    populateDatabase(productDao)
+        return INSTANCE ?: synchronized(this) {
+            val instance = INSTANCE
+            if (instance != null) {
+                instance
+            } else {
+                val callback = object : RoomDatabase.Callback() {
+                    override fun onCreate(db: SupportSQLiteDatabase) {
+                        super.onCreate(db)
+                        CoroutineScope(Dispatchers.IO).launch {
+                            val db = INSTANCE ?: return@launch
+                            val productDao = db.productDao()
+                            populateDatabase(productDao)
+                        }
+                    }
+                    suspend fun populateDatabase(productDao: ProductDao){
+                    val products = Product.products
+                    productDao.insertAll(products)
+                    }
                 }
-            }
-
-            suspend fun populateDatabase(productDao: ProductDao){
-                val products = Product.products
-                productDao.insertAll(products)
+                Room.databaseBuilder(context, BarcodeDb::class.java, "barcode_db").addCallback(callback).build().also {
+                    INSTANCE = it}
             }
         }
-
-        return Room.databaseBuilder(context, BarcodeDb::class.java, "barcode_db").addCallback(callback).build()
+//        val callback = object: RoomDatabase.Callback() {
+//            override fun onCreate(db: SupportSQLiteDatabase) {
+//                super.onCreate(db)
+//                val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+//                applicationScope.launch {
+//                    val barcodeDb = provideBarcodeDb(context)
+//                    val productDao = barcodeDb.productDao()
+//                    populateDatabase(productDao)
+//                }
+//            }
+//
+//            suspend fun populateDatabase(productDao: ProductDao){
+//                val products = Product.products
+//                productDao.insertAll(products)
+//            }
+//        }
+//
+//        return Room.databaseBuilder(context, BarcodeDb::class.java, "barcode_db").addCallback(callback).build()
     }
 
     @Provides

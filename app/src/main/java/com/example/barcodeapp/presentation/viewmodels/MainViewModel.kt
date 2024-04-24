@@ -7,8 +7,10 @@ import com.example.barcodeapp.domain.use_cases.GetProducts
 import com.example.barcodeapp.presentation.events.ProductsEvent
 import com.example.barcodeapp.presentation.states.ProductState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -19,6 +21,8 @@ class MainViewModel @Inject constructor(
 ): ViewModel() {
     private val _state = MutableStateFlow(ProductState())
     val state = _state.asStateFlow()
+    private val _uiEvent = Channel<String>()
+    val uiEvent = _uiEvent.receiveAsFlow()
 
     fun getString() = prueba
     init {
@@ -28,9 +32,9 @@ class MainViewModel @Inject constructor(
     private fun loadProducts(){
         viewModelScope.launch {
             try {
-                val products = getProducts()
-                _state.value = ProductState(products = products)
-                println(products)
+                getProducts().collect {
+                    _state.value = ProductState(products = it)
+                }
             } catch (e: Exception) {
                 Log.i("Error", "Falló el método getProducts")
             }
@@ -52,7 +56,9 @@ class MainViewModel @Inject constructor(
                 }
                 else{
                     // Mostrar que el producto no existe
-
+                    viewModelScope.launch {
+                        _uiEvent.send("Producto no encontrado")
+                    }
                 }
             }
         }
